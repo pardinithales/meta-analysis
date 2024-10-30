@@ -1,32 +1,51 @@
 ﻿from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional
 import json
 import os
 from datetime import datetime
+import pandas as pd
 
-app = FastAPI(title="Meta-Analysis API",
-             description="API para gerenciar dados de meta-análise de neurocisticercose")
+app = FastAPI()
 
 class StudyData(BaseModel):
-    # ... (manter todos os campos existentes) ...
+    Study_ID: Optional[str] = None
+    First_Author: Optional[str] = None
+    Year: Optional[str] = None
+    Country: Optional[str] = None
+    Study_Design: Optional[str] = None
+    Risk_of_Bias: Optional[str] = None
+    Diagnostic_Criteria: Optional[str] = None
+    Total_Sample_Size: Optional[str] = None
+    Treatment_Group_N: Optional[str] = None
+    Control_Group_N: Optional[str] = None
+    Age_Mean_SD: Optional[str] = None
+    Male_Percentage: Optional[str] = None
+    Female_Percentage: Optional[str] = None
+    Other_Demographics: Optional[str] = None
+    Headache_Percentage: Optional[str] = None
+    Focal_Seizures_Percentage: Optional[str] = None
+    Other_Symptoms: Optional[str] = None
+    Treatment_Type: Optional[str] = None
+    Albendazole_Dose: Optional[str] = None
+    Treatment_Duration_Days: Optional[str] = None
+    Number_of_Cycles: Optional[str] = None
+    Cycle_Interval_Days: Optional[str] = None
+    Praziquantel_Dose: Optional[str] = None
+    Corticosteroid_Type: Optional[str] = None
+    Antiepileptic_Drug: Optional[str] = None
+    Follow_up_Duration_Months: Optional[str] = None
+    Imaging_Schedule: Optional[str] = None
+    Complete_Resolution_Percentage: Optional[str] = None
+    Partial_Resolution_Percentage: Optional[str] = None
+    No_Change_Percentage: Optional[str] = None
+    Seizure_Reduction_Percentage: Optional[str] = None
+    Elevated_Liver_Enzymes_Percentage: Optional[str] = None
+    Other_AE: Optional[str] = None
+    Comments: Optional[str] = None
 
-    class Config:
-        json_encoders = {
-            str: lambda v: v.encode("utf-8").decode("utf-8") if isinstance(v, str) else v
-        }
-
-# Rota para listar todos os estudos
-@app.get("/studies/", response_model=List[str])
-async def list_studies():
-    """Lista todos os estudos disponíveis"""
-    try:
-        files = os.listdir("../data")
-        return [f.replace(".json", "") for f in files if f.endswith(".json")]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# Rota para criar/atualizar estudo
+# Conferir se o POST está certo
 @app.post("/study/")
 async def create_study(study: StudyData):
     """Cria ou atualiza um estudo"""
@@ -49,56 +68,55 @@ async def create_study(study: StudyData):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Rota para obter um estudo
+@app.get("/export")
+async def export_to_excel():
+    """Exporta todos os estudos para Excel"""
+    try:
+        print("Iniciando exportação...")
+        os.makedirs("../outputs", exist_ok=True)
+        print(f"Diretório atual: {os.getcwd()}")
+        
+        studies = []
+        data_dir = "../data"
+        print(f"Lendo arquivos de: {os.path.abspath(data_dir)}")
+        
+        for file in os.listdir(data_dir):
+            if file.endswith(".json"):
+                print(f"Processando: {file}")
+                with open(os.path.join(data_dir, file), "r", encoding="utf-8") as f:
+                    studies.append(json.load(f))
+        
+        print(f"Total de estudos: {len(studies)}")
+        df = pd.DataFrame(studies)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = os.path.join("../outputs", f"studies_export_{timestamp}.xlsx")
+        print(f"Salvando em: {filename}")
+        
+        df.to_excel(filename, index=False)
+        print("Excel criado com sucesso")
+        
+        return FileResponse(
+            path=filename,
+            filename=f"studies_export_{timestamp}.xlsx",
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    except Exception as e:
+        print(f"Erro: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/studies/")
+async def list_studies():
+    try:
+        files = os.listdir("../data")
+        return [f.replace(".json", "") for f in files if f.endswith(".json")]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/study/{study_id}")
 async def get_study(study_id: str):
-    """Obtém os dados de um estudo específico"""
     try:
         with open(f"../data/{study_id}.json", "r", encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Estudo não encontrado")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# Rota para deletar um estudo
-@app.delete("/study/{study_id}")
-async def delete_study(study_id: str):
-    """Deleta um estudo específico"""
-    try:
-        filename = f"../data/{study_id}.json"
-        os.remove(filename)
-        return {"message": f"Estudo {study_id} deletado com sucesso"}
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Estudo não encontrado")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# Rota para exportar todos os estudos para Excel
-@app.get("/export/excel")
-async def export_to_excel():
-    """Exporta todos os estudos para Excel"""
-    try:
-        import pandas as pd
-        
-        # Ler todos os arquivos JSON
-        studies = []
-        for file in os.listdir("../data"):
-            if file.endswith(".json"):
-                with open(f"../data/{file}", "r", encoding="utf-8") as f:
-                    studies.append(json.load(f))
-        
-        # Criar DataFrame
-        df = pd.DataFrame(studies)
-        
-        # Criar pasta outputs se não existir
-        os.makedirs("../outputs", exist_ok=True)
-        
-        # Salvar Excel
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"../outputs/studies_export_{timestamp}.xlsx"
-        df.to_excel(filename, index=False)
-        
-        return {"message": f"Dados exportados para {filename}"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))

@@ -1,57 +1,75 @@
-# Meta-análise: Neurocisticercose
+﻿# API de Meta-análise para Neurocisticercose
 
-## Rastreamento de Artigos (PRISMA)
+API REST para gerenciar dados de estudos sobre neurocisticercose.
 
-### Estrutura do Projeto
-
-### Como Atualizar os Números PRISMA
-
-1. **Ver Estatísticas Atuais**
-
-powershell
-Navegar até a pasta do projeto
-cd "C:\Users\fagun\OneDrive\Desktop\meta-analysis_neurocisticercosis"
-Ver estatísticas
-python "02_searches\scripts\track_selection_numbers.py"
-
-Selecione opção 1
-powershell
-Navegar até a pasta do projeto
-cd "C:\Users\fagun\OneDrive\Desktop\meta-analysis_neurocisticercosis"
-Adicionar nova etapa
-python "02_searches\scripts\track_selection_numbers.py"
-
-2. **Adicionar nova etapa**
-
-Selecione opção 2
-Siga as instruções para adicionar:
-- Nome da etapa (ex: "Após screening de títulos")
-- Número de artigos
-- Observação
+## Estrutura do Projeto
+meta-analysis_neurocisticercosis/
+├── 02_searches/
+│ ├── api/
+│ │ └── main.py
+│ ├── data/
+│ │ └── .json
+│ └── outputs/
+│ └── .xlsx
+├── documentation/
+└── scripts/
 
 
-python "02_searches\scripts\track_selection_numbers.py"
-Opção: 2
-Etapa: "Após screening de títulos"
-Número: [número de artigos restantes]
-Observação: "Excluídos X artigos após leitura de títulos"
-powershell
-python "02_searches\scripts\track_selection_numbers.py"
 
-Opção: 2
-Etapa: "Após screening de resumos"
-Número: [número de artigos restantes]
-Observação: "Excluídos X artigos após leitura de resumos"
-powershell
-python "02_searches\scripts\track_selection_numbers.py"
-Opção: 2
-Etapa: "Após leitura completa"
-Número: [número de artigos incluídos]
-Observação: "Excluídos X artigos após leitura completa"
 
-### Notas Importantes
+## Instalação
 
-1. Execute o script sempre da pasta raiz do projeto
-2. Mantenha o arquivo `screening_database.xlsx` atualizado
-3. Cada etapa será registrada com data automática
-4. Os números são cumulativos e serão usados para o fluxograma PRISMA
+1. Clone o repositório
+2. Crie um ambiente virtual Python:
+
+python -m venv venv
+
+
+3. Instale as dependências:
+
+pip install fastapi uvicorn pandas openpyxl
+
+
+4. Inicie o servidor:
+
+
+cd 02_searches/api
+
+cd 02_searches/api
+
+uvicorn main:app --reload
+
+
+## Endpoints
+
+- `POST /study/`: Criar/atualizar estudo
+- `GET /study/{study_id}`: Obter estudo específico
+- `GET /studies/`: Listar todos os estudos
+- `DELETE /study/{study_id}`: Deletar estudo
+- `GET /export`: Exportar estudos para Excel
+
+## Uso
+
+Acesse a documentação interativa em: http://localhost:8000/docs
+
+## Exemplos
+
+### Adicionar Estudo
+
+$jsonBody = @{
+
+$jsonBody = @{
+"Study_ID" = "Example_2024"
+"First_Author" = "Silva, J."
+"Year" = "2024"
+# ... outros campos
+}
+Invoke-RestMethod -Uri "http://localhost:8000/study/" -Method Post
+-Body ($jsonBody | ConvertTo-Json) -ContentType "application/json"
+
+Exportar para Excel
+
+Invoke-RestMethod -Uri "http://localhost:8000/export" `
+                 -Method Get `
+                 -OutFile "estudos.xlsx"
+
