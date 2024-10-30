@@ -1,0 +1,13 @@
+﻿# Python
+__pycache__/
+*.pyc
+
+# Dados gerados
+02_searches/data/
+02_searches/outputs/
+02_searches/api/test_data.json
+02_searches/api/minimal_test.json
+
+# Ambiente virtual (se estiver usando)
+venv/
+env/
