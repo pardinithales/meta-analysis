@@ -42,13 +42,6 @@ class StudyEntryForm:
         # Dados coletados
         self.data = []
         
-        # Abreviações
-        self.abbreviations = {}
-        
-        # Inicializar listas de grupos
-        self.treatment_groups = []
-        self.control_groups = []
-        
         # Criar todos os widgets
         self.create_widgets()
         
@@ -60,164 +53,192 @@ class StudyEntryForm:
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        canvas = tk.Canvas(main_frame)
+        # Canvas e Scrollbar com cor de fundo correta
+        canvas = tk.Canvas(main_frame, bg=self.root.cget('bg'))  # Mesma cor do fundo
         scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
+        scrollable_frame = ttk.Frame(canvas, style='TFrame')
         
+        # Configurar rolagem
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
         scrollable_frame.bind(
             "<Configure>",
-            lambda e: canvas.configure(
-                scrollregion=canvas.bbox("all")
-            )
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
         
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        # Criar janela no canvas com largura adequada
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw", width=1150)  # Largura fixa
         canvas.configure(yscrollcommand=scrollbar.set)
         
+        # Pack do canvas e scrollbar
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+        
+        # Configurar cores e estilos
+        style = ttk.Style()
+        style.configure('TFrame', background=self.root.cget('bg'))
+        canvas.configure(highlightthickness=0)  # Remove a borda do canvas
         
         # Configurar grid para expandir
         scrollable_frame.columnconfigure(1, weight=1)
         
-        # 1. Estudo Selecionado
-        ttk.Label(scrollable_frame, text="Estudo:").grid(row=0, column=0, sticky=tk.W, pady=2)
-        study_frame = ttk.Frame(scrollable_frame)
-        study_frame.grid(row=0, column=1, columnspan=2, sticky='ew', pady=2)
+        # Definir linha atual
+        self.current_row = 0
         
-        # Autor
-        ttk.Label(study_frame, text="Autor:").grid(row=0, column=0, padx=5)
+        # 1. Informações do Estudo
+        ttk.Label(scrollable_frame, text="Informações do Estudo", font=('Helvetica', 16, 'bold')).grid(row=self.current_row, column=0, columnspan=2, sticky=tk.W, pady=10)
+        self.current_row += 1
+        
+        # Study_ID (Seleção do Estudo)
+        ttk.Label(scrollable_frame, text="Study_ID:").grid(row=self.current_row, column=0, sticky=tk.W, pady=2)
+        self.study_var = tk.StringVar()
+        self.study_combo = ttk.Combobox(scrollable_frame, 
+                                        textvariable=self.study_var,
+                                        values=self.studies,
+                                        width=40,
+                                        state="readonly")
+        self.study_combo.grid(row=self.current_row, column=1, sticky='ew', pady=2)
+        self.study_combo.bind('<<ComboboxSelected>>', self.on_study_select)
+        self.current_row += 1
+        
+        # First_Author
+        ttk.Label(scrollable_frame, text="First Author:").grid(row=self.current_row, column=0, sticky=tk.W, pady=2)
         self.author_var = tk.StringVar()
-        self.author_entry = ttk.Entry(study_frame, textvariable=self.author_var, width=20)
-        self.author_entry.grid(row=0, column=1, padx=5)
+        self.author_entry = ttk.Entry(scrollable_frame, textvariable=self.author_var, width=40)
+        self.author_entry.grid(row=self.current_row, column=1, sticky='ew', pady=2)
+        self.current_row += 1
         
-        # Ano
-        ttk.Label(study_frame, text="Ano:").grid(row=0, column=2, padx=5)
+        # Year
+        ttk.Label(scrollable_frame, text="Year:").grid(row=self.current_row, column=0, sticky=tk.W, pady=2)
         self.year_var = tk.StringVar()
-        self.year_entry = ttk.Entry(study_frame, textvariable=self.year_var, width=10)
-        self.year_entry.grid(row=0, column=3, padx=5)
+        self.year_entry = ttk.Entry(scrollable_frame, textvariable=self.year_var, width=40)
+        self.year_entry.grid(row=self.current_row, column=1, sticky='ew', pady=2)
+        self.current_row += 1
         
-        # Design do Estudo
-        ttk.Label(study_frame, text="Design:").grid(row=0, column=4, padx=5)
+        # Country
+        ttk.Label(scrollable_frame, text="Country:").grid(row=self.current_row, column=0, sticky=tk.W, pady=2)
+        self.country_var = tk.StringVar()
+        self.country_entry = ttk.Entry(scrollable_frame, textvariable=self.country_var, width=40)
+        self.country_entry.grid(row=self.current_row, column=1, sticky='ew', pady=2)
+        self.current_row += 1
+        
+        # Study Design
+        ttk.Label(scrollable_frame, text="Study Design:").grid(row=self.current_row, column=0, sticky=tk.W, pady=2)
         self.design_var = tk.StringVar()
-        self.design_combo = ttk.Combobox(study_frame, textvariable=self.design_var, 
-                                       values=["RCT", "Non-RCT"], width=10)
-        self.design_combo.grid(row=0, column=5, padx=5)
+        self.design_combo = ttk.Combobox(scrollable_frame, textvariable=self.design_var, 
+                                         values=["RCT", "Non-RCT", "Case-Control", "Cohort", "Cross-sectional"],
+                                         width=37, state="readonly")
+        self.design_combo.grid(row=self.current_row, column=1, sticky='ew', pady=2)
+        self.current_row += 1
         
-        # Número de Pacientes por Grupo
-        patient_frame = ttk.Frame(scrollable_frame)
-        patient_frame.grid(row=1, column=1, columnspan=2, sticky='ew', pady=2)
+        # Risk of Bias
+        ttk.Label(scrollable_frame, text="Risk of Bias:").grid(row=self.current_row, column=0, sticky=tk.W, pady=2)
+        self.risk_bias_var = tk.StringVar()
+        self.risk_bias_combo = ttk.Combobox(scrollable_frame, textvariable=self.risk_bias_var, 
+                                            values=["Low", "Moderate", "High", "Unclear"],
+                                            width=37, state="readonly")
+        self.risk_bias_combo.grid(row=self.current_row, column=1, sticky='ew', pady=2)
+        self.current_row +=1
         
-        # Frame para grupos de tratamento
-        ttk.Label(scrollable_frame, text="Tratamentos:").grid(row=1, column=0, sticky=tk.W, pady=2)
-        self.treatment_frame = ttk.Frame(scrollable_frame)
-        self.treatment_frame.grid(row=1, column=1, columnspan=2, sticky='ew', pady=2)
+        # Diagnostic Criteria
+        ttk.Label(scrollable_frame, text="Diagnostic Criteria:").grid(row=self.current_row, column=0, sticky=tk.W, pady=2)
+        self.diagnostic_var = tk.StringVar()
+        self.diagnostic_entry = ttk.Entry(scrollable_frame, textvariable=self.diagnostic_var, width=40)
+        self.diagnostic_entry.grid(row=self.current_row, column=1, sticky='ew', pady=2)
+        self.current_row +=1
         
-        # Botão para adicionar novo grupo de tratamento
-        add_treatment_btn = ttk.Button(self.treatment_frame, text="Adicionar Grupo de Tratamento", 
-                                     command=self.add_treatment_group)
-        add_treatment_btn.grid(row=0, column=0, pady=5, sticky='w')
+        # 2. População
+        ttk.Label(scrollable_frame, text="População", font=('Helvetica', 16, 'bold')).grid(row=self.current_row, column=0, columnspan=2, sticky=tk.W, pady=10)
+        self.current_row += 1
         
-        # Total de tratamentos
-        treatment_total_frame = ttk.Frame(self.treatment_frame)
-        treatment_total_frame.grid(row=999, column=0, sticky='ew', pady=5)
-        ttk.Label(treatment_total_frame, text="N Total Tratamentos:").grid(row=0, column=0, padx=5)
-        self.total_treatment_n_var = tk.StringVar()
-        self.total_treatment_entry = ttk.Entry(treatment_total_frame, 
-                                             textvariable=self.total_treatment_n_var, 
-                                             width=10, state='readonly')
-        self.total_treatment_entry.grid(row=0, column=1, padx=5)
+        # Total Sample Size
+        ttk.Label(scrollable_frame, text="Total Sample Size:").grid(row=self.current_row, column=0, sticky=tk.W, pady=2)
+        self.total_sample_var = tk.StringVar()
+        self.total_sample_entry = ttk.Entry(scrollable_frame, textvariable=self.total_sample_var, width=40)
+        self.total_sample_entry.grid(row=self.current_row, column=1, sticky='ew', pady=2)
+        self.current_row += 1
         
-        # Frame para grupos controle
-        ttk.Label(scrollable_frame, text="Controles:").grid(row=2, column=0, sticky=tk.W, pady=2)
-        self.control_frame = ttk.Frame(scrollable_frame)
-        self.control_frame.grid(row=2, column=1, columnspan=2, sticky='ew', pady=2)
+        # Treatment Group N
+        ttk.Label(scrollable_frame, text="Treatment Group N:").grid(row=self.current_row, column=0, sticky=tk.W, pady=2)
+        self.treatment_n_var = tk.StringVar()
+        self.treatment_n_entry = ttk.Entry(scrollable_frame, textvariable=self.treatment_n_var, width=40)
+        self.treatment_n_entry.grid(row=self.current_row, column=1, sticky='ew', pady=2)
+        self.current_row += 1
         
-        # Botão para adicionar novo controle
-        add_control_btn = ttk.Button(self.control_frame, text="Adicionar Grupo Controle", 
-                                    command=self.add_control_group)
-        add_control_btn.grid(row=0, column=0, pady=5, sticky='w')
+        # Control Group N
+        ttk.Label(scrollable_frame, text="Control Group N:").grid(row=self.current_row, column=0, sticky=tk.W, pady=2)
+        self.control_n_var = tk.StringVar()
+        self.control_n_entry = ttk.Entry(scrollable_frame, textvariable=self.control_n_var, width=40)
+        self.control_n_entry.grid(row=self.current_row, column=1, sticky='ew', pady=2)
+        self.current_row += 1
         
-        # Total de controles
-        control_total_frame = ttk.Frame(self.control_frame)
-        control_total_frame.grid(row=999, column=0, sticky='ew', pady=5)
-        ttk.Label(control_total_frame, text="N Total Controles:").grid(row=0, column=0, padx=5)
-        self.total_control_n_var = tk.StringVar()
-        self.total_control_entry = ttk.Entry(control_total_frame, 
-                                           textvariable=self.total_control_n_var, 
-                                           width=10, state='readonly')
-        self.total_control_entry.grid(row=0, column=1, padx=5)
+        # Age Mean ± SD
+        ttk.Label(scrollable_frame, text="Age Mean ± SD:").grid(row=self.current_row, column=0, sticky=tk.W, pady=2)
+        self.age_mean_sd_var = tk.StringVar()
+        self.age_mean_sd_entry = ttk.Entry(scrollable_frame, textvariable=self.age_mean_sd_var, width=40)
+        self.age_mean_sd_entry.grid(row=self.current_row, column=1, sticky='ew', pady=2)
+        self.current_row += 1
         
-        # Abreviações (apenas uma vez, após os controles)
-        ttk.Label(scrollable_frame, text="Abreviações:").grid(row=3, column=0, sticky=tk.W, pady=2)
-        self.abbreviation_text = tk.Text(scrollable_frame, height=3, width=50)
-        self.abbreviation_text.grid(row=3, column=1, columnspan=2, sticky='ew', pady=2)
+        # Male Percentage
+        ttk.Label(scrollable_frame, text="Male Percentage (%):").grid(row=self.current_row, column=0, sticky=tk.W, pady=2)
+        self.male_perc_var = tk.StringVar()
+        self.male_perc_entry = ttk.Entry(scrollable_frame, textvariable=self.male_perc_var, width=40)
+        self.male_perc_entry.grid(row=self.current_row, column=1, sticky='ew', pady=2)
+        self.current_row += 1
         
-        # Inicializar com um grupo de cada
-        self.add_treatment_group()
-        self.add_control_group()
+        # Female Percentage
+        ttk.Label(scrollable_frame, text="Female Percentage (%):").grid(row=self.current_row, column=0, sticky=tk.W, pady=2)
+        self.female_perc_var = tk.StringVar()
+        self.female_perc_entry = ttk.Entry(scrollable_frame, textvariable=self.female_perc_var, width=40)
+        self.female_perc_entry.grid(row=self.current_row, column=1, sticky='ew', pady=2)
+        self.current_row += 1
         
-        # 4. Intervenção - Campos Dinâmicos
-        ttk.Label(scrollable_frame, text="Intervenção:").grid(row=4, column=0, sticky=tk.W, pady=2)
-        self.int_frame = ttk.Frame(scrollable_frame)
-        self.int_frame.grid(row=4, column=1, columnspan=2, sticky='nsew', padx=5, pady=5)
+        # 3. Características Clínicas
+        ttk.Label(scrollable_frame, text="Características Clínicas", font=('Helvetica', 16, 'bold')).grid(row=self.current_row, column=0, columnspan=2, sticky=tk.W, pady=10)
+        self.current_row += 1
         
-        # Lista para campos de intervenção
-        self.int_fields = []
+        # Criar campos para cada característica clínica
+        self.create_clinical_fields(scrollable_frame)
         
-        # Botão para adicionar intervenção
-        add_button = ttk.Button(self.int_frame, text="Adicionar Campo de Intervenção", 
-                               command=self.add_int_field)
-        add_button.grid(row=0, column=0, pady=5, sticky='w')
+        # 4. Detalhes do Tratamento
+        ttk.Label(scrollable_frame, text="Detalhes do Tratamento", font=('Helvetica', 16, 'bold')).grid(row=self.current_row, column=0, columnspan=2, sticky=tk.W, pady=10)
+        self.current_row += 1
         
-        # 5. Controle - Campos Dinâmicos
-        ttk.Label(scrollable_frame, text="Controle:").grid(row=5, column=0, sticky=tk.NW, pady=2)
-        self.add_control_field(scrollable_frame)
+        # Criar campos para detalhes do tratamento
+        self.create_treatment_fields(scrollable_frame)
         
-        # 6. Desenho do Estudo
-        ttk.Label(scrollable_frame, text="Desenho do Estudo:").grid(row=6, column=0, sticky=tk.W, pady=2)
-        self.study_design_var = tk.StringVar()
-        self.study_design_combo = ttk.Combobox(scrollable_frame, textvariable=self.study_design_var, state="readonly")
-        self.study_design_combo['values'] = ["RCT", "Cohort", "Case-Control", "Observacional", "Outros"]
-        self.study_design_combo.grid(row=6, column=1, columnspan=2, sticky=(tk.W, tk.E), pady=2)
-        self.study_design_combo.set("RCT")  # Definir como padrão
+        # 5. Follow-up e Resultados
+        ttk.Label(scrollable_frame, text="Follow-up e Resultados", font=('Helvetica', 16, 'bold')).grid(row=self.current_row, column=0, columnspan=2, sticky=tk.W, pady=10)
+        self.current_row += 1
         
-        # 7. Follow-Up
-        ttk.Label(scrollable_frame, text="Follow-Up:").grid(row=7, column=0, sticky=tk.W, pady=2)
-        followup_frame = ttk.Frame(scrollable_frame)
-        followup_frame.grid(row=7, column=1, columnspan=2, sticky=tk.W, pady=2)
+        # Criar campos para follow-up e resultados
+        self.create_followup_fields(scrollable_frame)
         
-        self.followup_number_var = tk.StringVar()
-        self.followup_number_entry = ttk.Entry(followup_frame, textvariable=self.followup_number_var, width=10)
-        self.followup_number_entry.grid(row=0, column=0, padx=5)
+        # 6. Parâmetros Laboratoriais
+        ttk.Label(scrollable_frame, text="Parâmetros Laboratoriais", font=('Helvetica', 16, 'bold')).grid(row=self.current_row, column=0, columnspan=2, sticky=tk.W, pady=10)
+        self.current_row += 1
         
-        self.followup_unit_var = tk.StringVar()
-        self.followup_unit_combo = ttk.Combobox(followup_frame, textvariable=self.followup_unit_var, state="readonly", width=10)
-        self.followup_unit_combo['values'] = ["Meses", "Anos"]
-        self.followup_unit_combo.grid(row=0, column=1, padx=5)
-        self.followup_unit_combo.set("Meses")
+        # Criar campos para parâmetros laboratoriais
+        self.create_laboratory_fields(scrollable_frame)
         
-        self.followup_symbol_var = tk.StringVar()
-        self.followup_symbol_combo = ttk.Combobox(followup_frame, textvariable=self.followup_symbol_var, state="readonly", width=5)
-        self.followup_symbol_combo['values'] = ["±", "="]
-        self.followup_symbol_combo.grid(row=0, column=2, padx=5)
-        self.followup_symbol_combo.set("±")
+        # 7. Eventos Adversos
+        ttk.Label(scrollable_frame, text="Eventos Adversos", font=('Helvetica', 16, 'bold')).grid(row=self.current_row, column=0, columnspan=2, sticky=tk.W, pady=10)
+        self.current_row += 1
         
-        # 8. Número de Pacientes
-        ttk.Label(scrollable_frame, text="Número de Pacientes:").grid(row=8, column=0, sticky=tk.NW, pady=2)
-        self.add_patient_numbers_field(scrollable_frame)
+        # Criar campos para eventos adversos
+        self.create_adverse_events_fields(scrollable_frame)
         
-        # 9. Dados Epidemiológicos
-        ttk.Label(scrollable_frame, text="Dados Epidemiológicos:").grid(row=9, column=0, sticky=tk.NW, pady=2)
-        self.add_epidemiological_field(scrollable_frame)
+        # 8. Notas
+        ttk.Label(scrollable_frame, text="Comentários:").grid(row=self.current_row, column=0, sticky=tk.W, pady=2)
+        self.comments_text = tk.Text(scrollable_frame, height=4, width=50)
+        self.comments_text.grid(row=self.current_row, column=1, sticky='ew', pady=2)
+        self.current_row += 1
         
-        # 10. Idade
-        ttk.Label(scrollable_frame, text="Idade:").grid(row=10, column=0, sticky=tk.NW, pady=2)
-        self.add_age_field(scrollable_frame)
-        
-        # 11. Botões de Ação
+        # Botões de Ação
         button_frame = ttk.Frame(scrollable_frame)
-        button_frame.grid(row=11, column=1, columnspan=2, sticky=tk.E, pady=20)
+        button_frame.grid(row=self.current_row, column=0, columnspan=2, sticky=tk.E, pady=20)
         
         self.save_button = ttk.Button(button_frame, text="Salvar Entrada (Ctrl+Enter)", command=self.save_entry)
         self.save_button.grid(row=0, column=0, padx=5)
@@ -225,523 +246,464 @@ class StudyEntryForm:
         self.export_button = ttk.Button(button_frame, text="Exportar para Excel (Ctrl+Shift+Enter)", command=self.export_to_excel)
         self.export_button.grid(row=0, column=1, padx=5)
         
-        # Inicializar com um campo de intervenção
-        self.add_int_field()
+    def create_clinical_fields(self, frame):
+        # Lista de campos clínicos
+        clinical_fields = [
+            ('Single Lesion N:', 'single_lesion_n_var'),
+            ('Multiple Lesions N:', 'multiple_lesions_n_var'),
+            ('Lesions Mean Number:', 'lesions_mean_number_var'),
+            ('Parenchymal Location %:', 'parenchymal_location_perc_var'),
+            ('Extraparenchymal %:', 'extraparenchymal_perc_var'),
+            ('Active Cysts %:', 'active_cysts_perc_var'),
+            ('Calcified Lesions %:', 'calcified_lesions_perc_var'),
+            ('Focal Seizures %:', 'focal_seizures_perc_var'),
+            ('Generalized Seizures %:', 'generalized_seizures_perc_var'),
+            ('Headache %:', 'headache_perc_var'),
+            ('Other Symptoms:', 'other_symptoms_var')
+        ]
         
-        # Frame para grupos controle (separando abreviações)
-        control_label_frame = ttk.Frame(scrollable_frame)
-        control_label_frame.grid(row=2, column=0, sticky=tk.W, pady=2)
+        for label_text, var_name in clinical_fields:
+            ttk.Label(frame, text=label_text).grid(row=self.current_row, column=0, sticky=tk.W, pady=2)
+            setattr(self, var_name, tk.StringVar())
+            entry = ttk.Entry(frame, textvariable=getattr(self, var_name), width=40)
+            entry.grid(row=self.current_row, column=1, sticky='ew', pady=2)
+            self.current_row += 1
+    
+    def create_treatment_fields(self, frame):
+        # Lista de campos de tratamento
+        treatment_fields = [
+            ('Treatment Type:', 'treatment_type_var', ['Albendazole', 'Praziquantel', 'Combined', 'Placebo']),
+            ('Albendazole Dose:', 'albendazole_dose_var'),
+            ('Praziquantel Dose:', 'praziquantel_dose_var'),
+            ('Treatment Duration (Days):', 'treatment_duration_var'),
+            ('Number of Cycles:', 'number_of_cycles_var'),
+            ('Cycle Interval (Days):', 'cycle_interval_var'),
+            ('Corticosteroid Type:', 'corticosteroid_type_var'),
+            ('Corticosteroid Dose:', 'corticosteroid_dose_var'),
+            ('Corticosteroid Duration:', 'corticosteroid_duration_var'),
+            ('Antiepileptic Drug:', 'antiepileptic_drug_var'),
+            ('AED Dose:', 'aed_dose_var')
+        ]
         
-        ttk.Label(control_label_frame, text="Controles:").pack(anchor='w')
-        ttk.Label(control_label_frame, text="Abreviações:").pack(anchor='w')
+        for item in treatment_fields:
+            label_text = item[0]
+            var_name = item[1]
+            ttk.Label(frame, text=label_text).grid(row=self.current_row, column=0, sticky=tk.W, pady=2)
+            setattr(self, var_name, tk.StringVar())
+            if len(item) == 3:
+                # Combobox
+                entry = ttk.Combobox(frame, textvariable=getattr(self, var_name), 
+                                     values=item[2], width=37, state="readonly")
+            else:
+                # Entry
+                entry = ttk.Entry(frame, textvariable=getattr(self, var_name), width=40)
+            entry.grid(row=self.current_row, column=1, sticky='ew', pady=2)
+            self.current_row += 1
+    
+    def create_followup_fields(self, frame):
+        # Lista de campos de follow-up
+        followup_fields = [
+            ('Follow-up Duration (Months):', 'followup_duration_var'),
+            ('Lost to Follow-up N:', 'lost_to_followup_n_var'),
+            ('Imaging Schedule:', 'imaging_schedule_var'),
+            ('Complete Resolution %:', 'complete_resolution_perc_var'),
+            ('Partial Resolution %:', 'partial_resolution_perc_var'),
+            ('No Change %:', 'no_change_perc_var'),
+            ('Calcification Rate %:', 'calcification_rate_perc_var'),
+            ('Seizure Free %:', 'seizure_free_perc_var'),
+            ('Seizure Reduction %:', 'seizure_reduction_perc_var')
+        ]
         
-        self.control_frame = ttk.Frame(scrollable_frame)
-        self.control_frame.grid(row=2, column=1, columnspan=2, sticky='ew', pady=2)
+        for label_text, var_name in followup_fields:
+            ttk.Label(frame, text=label_text).grid(row=self.current_row, column=0, sticky=tk.W, pady=2)
+            setattr(self, var_name, tk.StringVar())
+            entry = ttk.Entry(frame, textvariable=getattr(self, var_name), width=40)
+            entry.grid(row=self.current_row, column=1, sticky='ew', pady=2)
+            self.current_row += 1
+    
+    def create_laboratory_fields(self, frame):
+        # Lista de campos laboratoriais
+        lab_fields = [
+            ('EITB Positive %:', 'eitb_positive_perc_var'),
+            ('ELISA Positive %:', 'elisa_positive_perc_var'),
+            ('CSF Analysis:', 'csf_analysis_var'),
+            ('Elevated Liver Enzymes %:', 'elevated_liver_enzymes_perc_var')
+        ]
         
-        # Lista para armazenar os grupos controle
-        self.control_groups = []
+        for label_text, var_name in lab_fields:
+            ttk.Label(frame, text=label_text).grid(row=self.current_row, column=0, sticky=tk.W, pady=2)
+            setattr(self, var_name, tk.StringVar())
+            entry = ttk.Entry(frame, textvariable=getattr(self, var_name), width=40)
+            entry.grid(row=self.current_row, column=1, sticky='ew', pady=2)
+            self.current_row += 1
+    
+    def create_adverse_events_fields(self, frame):
+        # Lista de campos de eventos adversos
+        ae_fields = [
+            ('Total AE N:', 'total_ae_n_var'),
+            ('Headache AE %:', 'headache_ae_perc_var'),
+            ('Seizures AE %:', 'seizures_ae_perc_var'),
+            ('Gastrointestinal AE %:', 'gastrointestinal_ae_perc_var'),
+            ('Other AE:', 'other_ae_var')
+        ]
         
-        # Botão para adicionar novo controle
-        add_control_btn = ttk.Button(self.control_frame, text="Adicionar Grupo Controle", 
-                                    command=self.add_control_group)
-        add_control_btn.grid(row=0, column=0, pady=5, sticky='w')
-        
-        # Inicializar com um grupo controle
-        self.add_control_group()
-        
-    def add_population_field(self, parent_frame):
-        """Adiciona campos dinâmicos para População"""
-        self.pop_frame = ttk.Frame(parent_frame)
-        self.pop_frame.grid(row=1, column=1, columnspan=2, sticky='ew', pady=2)
-        
-        add_button = ttk.Button(self.pop_frame, text="Adicionar Campo de População", command=self.add_pop_field)
-        add_button.grid(row=0, column=0, pady=5, sticky='w')
-        
-        self.pop_fields = []
-        self.add_pop_field()
-        
-    def add_pop_field(self):
-        """Adiciona um novo campo de População com bindings para Tab e Delete"""
-        idx = len(self.pop_fields) + 1
-        entry = ttk.Entry(self.pop_frame, width=50)
-        entry.grid(row=idx, column=0, padx=5, pady=2, sticky='ew')
-        self.pop_fields.append(entry)
-        
-        # Vincular eventos
-        entry.bind("<Tab>", lambda e: self.handle_population_tab(e, entry))
-        entry.bind("<Delete>", lambda e: self.handle_population_delete(e, entry))
-        entry.bind("<BackSpace>", lambda e: self.handle_population_delete(e, entry))
-        
-    def handle_population_tab(self, event, current_entry):
-        """Gerencia Tab nos campos de população"""
-        current_text = current_entry.get().strip()
-        if current_text and current_entry == self.pop_fields[-1]:
-            self.add_pop_field()
-            self.pop_fields[-1].focus_set()
-            return "break"
-        return None
-        
-    def handle_population_delete(self, event, current_entry):
-        """Gerencia Delete/Backspace nos campos de população"""
-        if not current_entry.get().strip() and len(self.pop_fields) > 1:
-            # Encontrar o índice do campo atual
-            idx = self.pop_fields.index(current_entry)
-            
-            # Remover o campo
-            current_entry.grid_remove()
-            self.pop_fields.remove(current_entry)
-            
-            # Focar no campo anterior se existir
-            if idx > 0:
-                self.pop_fields[idx-1].focus_set()
-            return "break"
-        return None
-        
-    def add_int_field(self):
-        """Adiciona novo campo de intervenção com número de pacientes"""
-        idx = len(self.int_fields)
-        frame = ttk.Frame(self.int_frame)
-        frame.grid(row=idx+1, column=0, sticky='ew', pady=2)
-        
-        # Campo de intervenção
-        entry = ttk.Entry(frame, width=40)
-        entry.grid(row=0, column=0, padx=5)
-        
-        # Adicionar trace para atualizar campos dependentes
-        entry.bind('<KeyRelease>', lambda e: self.on_intervention_change(e))
-        
-        # Número de pacientes
-        ttk.Label(frame, text="Pacientes:").grid(row=0, column=1, padx=5)
-        num_entry = ttk.Entry(frame, width=10)
-        num_entry.grid(row=0, column=2, padx=5)
-        
-        # Porcentagem
-        ttk.Label(frame, text="%:").grid(row=0, column=3, padx=5)
-        perc_entry = ttk.Entry(frame, width=10)
-        perc_entry.grid(row=0, column=4, padx=5)
-        
-        # Botão remover
-        remove_btn = ttk.Button(frame, text="X", width=3,
-                    command=lambda: self.remove_field(frame, self.int_fields))
-        remove_btn.grid(row=0, column=5, padx=5)
-        
-        # Adicionar à lista
-        field_dict = {
-            'frame': frame,
-            'intervention': entry,
-            'patients': num_entry,
-            'percentage': perc_entry,
-            'remove_button': remove_btn
-        }
-        self.int_fields.append(field_dict)
-        
-        # Vincular eventos
-        entry.bind("<Tab>", lambda e: self.handle_intervention_tab(e, field_dict))
-        num_entry.bind("<Tab>", lambda e: self.handle_intervention_tab(e, field_dict))
-        perc_entry.bind("<Tab>", lambda e: self.handle_intervention_tab(e, field_dict))
-        
-        entry.bind("<Delete>", lambda e: self.handle_intervention_delete(e, field_dict))
-        entry.bind("<BackSpace>", lambda e: self.handle_intervention_delete(e, field_dict))
-        
-        # Atualizar campos dependentes
-        self.update_patient_numbers_fields()
-        self.update_age_fields()
-        self.update_epidemiological_fields()
-        
-        return entry
-        
-    def handle_intervention_tab(self, event, field_dict):
-        """Gerencia Tab nos campos de intervenção"""
-        # Identificar qual campo disparou o evento
-        widget = event.widget
-        
-        # Se for o campo de porcentagem e tiver conteúdo
-        if (widget == field_dict['percentage'] and 
-            field_dict['percentage'].get().strip() and 
-            field_dict == self.int_fields[-1]):
-            # Adicionar novo campo de intervenção
-            new_entry = self.add_int_field()
-            new_entry.focus_set()
-            return "break"
-        return None
-        
-    def handle_intervention_delete(self, event, field_dict):
-        """Gerencia Delete/Backspace nos campos de intervenção"""
-        if (not field_dict['intervention'].get().strip() and 
-            len(self.int_fields) > 1):
-            # Encontrar o índice do campo atual
-            idx = self.int_fields.index(field_dict)
-            
-            # Remover o campo
-            field_dict['frame'].grid_remove()
-            self.int_fields.remove(field_dict)
-            
-            # Focar no campo anterior se existir
-            if idx > 0:
-                self.int_fields[idx-1]['intervention'].focus_set()
-                
-            # Atualizar campos dependentes
-            self.update_patient_numbers_fields()
-            self.update_age_fields()
-            self.update_epidemiological_fields()
-            return "break"
-        return None
-        
-    def remove_field(self, frame, field_list):
-        """Remove um campo específico"""
-        frame.destroy()
-        for idx, field in enumerate(field_list):
-            if field['frame'] == frame:
-                field_list.pop(idx)
-                break
-        # Atualizar campos dependentes
-        self.update_patient_numbers_fields()
-        self.update_age_fields()
-        self.update_epidemiological_fields()
-        
-    def on_intervention_change(self, event=None):
-        """Atualiza campos dependentes quando a intervenção muda"""
-        self.update_patient_numbers_fields()
-        self.update_age_fields()
-        self.update_epidemiological_fields()
-        
-    def add_control_field(self, parent_frame):
-        """Adiciona campos dinâmicos para Controle"""
-        self.control_frame = ttk.Frame(parent_frame)
-        self.control_frame.grid(row=5, column=1, columnspan=2, sticky='ew', pady=2)
-        
-        add_button = ttk.Button(self.control_frame, text="Adicionar Campo de Controle", 
-                               command=self.add_control_field_entry)
-        add_button.grid(row=0, column=0, pady=5, sticky='w')
-        
-        self.control_fields = []
-        self.add_control_field_entry()
-        
-    def add_control_field_entry(self):
-        """Adiciona um novo campo de Controle"""
-        idx = len(self.control_fields) + 1
-        entry = ttk.Entry(self.control_frame, width=50)
-        entry.grid(row=idx, column=0, padx=5, pady=2, sticky='ew')
-        self.control_fields.append(entry)
-        
-        # Vincular eventos
-        entry.bind("<Tab>", lambda e: self.handle_control_tab(e, entry))
-        entry.bind("<Delete>", lambda e: self.handle_control_delete(e, entry))
-        entry.bind("<BackSpace>", lambda e: self.handle_control_delete(e, entry))
-        
-    def handle_control_tab(self, event, current_entry):
-        """Gerencia Tab nos campos de controle"""
-        current_text = current_entry.get().strip()
-        if current_text and current_entry == self.control_fields[-1]:
-            self.add_control_field_entry()
-            self.control_fields[-1].focus_set()
-            return "break"
-        return None
-        
-    def handle_control_delete(self, event, current_entry):
-        """Gerencia Delete/Backspace nos campos de controle"""
-        if not current_entry.get().strip() and len(self.control_fields) > 1:
-            # Encontrar o índice do campo atual
-            idx = self.control_fields.index(current_entry)
-            
-            # Remover o campo
-            current_entry.grid_remove()
-            self.control_fields.remove(current_entry)
-            
-            # Focar no campo anterior se existir
-            if idx > 0:
-                self.control_fields[idx-1].focus_set()
-            return "break"
-        return None
-        
-    def add_patient_numbers_field(self, parent_frame):
-        """Adiciona campos para Número de Pacientes"""
-        self.patients_frame = ttk.Frame(parent_frame)
-        self.patients_frame.grid(row=8, column=1, columnspan=2, sticky='ew', pady=2)
-        
-        # Labels para Intervenção
-        ttk.Label(self.patients_frame, text="Grupo").grid(row=0, column=0, padx=5, pady=2)
-        ttk.Label(self.patients_frame, text="Número de Pacientes").grid(row=0, column=1, padx=5, pady=2)
-        
-        self.patient_entries = []
-        self.update_patient_numbers_fields()
-        
-    def update_patient_numbers_fields(self):
-        """Atualiza os campos de Número de Pacientes com base nas Intervenções"""
-        # Limpar campos existentes
-        for widget in self.patients_frame.winfo_children():
-            widget.destroy()
-        
-        # Recriar labels de cabeçalho
-        ttk.Label(self.patients_frame, text="Grupo").grid(row=0, column=0, padx=5, pady=2)
-        ttk.Label(self.patients_frame, text="Número de Pacientes").grid(row=0, column=1, padx=5, pady=2)
-        
-        self.patient_entries = []
-        for i, intervention_dict in enumerate(self.int_fields):
-            group = intervention_dict['intervention'].get().strip() if intervention_dict['intervention'].get().strip() else f"Intervenção {i+1}"
-            ttk.Label(self.patients_frame, text=group).grid(row=i+1, column=0, padx=5, pady=2)
-            
-            patient_entry = ttk.Entry(self.patients_frame, width=20)
-            patient_entry.grid(row=i+1, column=1, padx=5, pady=2, sticky='ew')
-            patient_entry.insert(0, "0")
-            
-            self.patient_entries.append(patient_entry)
-        
-    def add_epidemiological_field(self, parent_frame):
-        """Adiciona campos para Dados Epidemiológicos"""
-        self.epi_frame = ttk.Frame(parent_frame)
-        self.epi_frame.grid(row=9, column=1, columnspan=2, sticky='ew', pady=2)
-        
-        # Label para Female Sex
-        ttk.Label(self.epi_frame, text="Sexo Feminino:").grid(row=0, column=0, sticky=tk.W, pady=2)
-        
-        # Subdivisão por Intervenção
-        self.epi_entries = {}
-        for i, intervention_dict in enumerate(self.int_fields):
-            inter_text = intervention_dict['intervention'].get().strip() if intervention_dict['intervention'].get().strip() else f"Intervenção {i+1}"
-            ttk.Label(self.epi_frame, text=inter_text).grid(row=0, column=i+1, padx=5, pady=2)
-            
-            # Entrada para cada intervenção
-            entry = ttk.Entry(self.epi_frame, width=20)
-            entry.grid(row=1, column=i+1, padx=5, pady=2, sticky='ew')
-            entry.insert(0, "0 (0.0%)")
-            self.epi_entries[inter_text] = entry
-        
-    def update_epidemiological_fields(self):
-        """Atualiza os campos de Dados Epidemiológicos com base nas Intervenções"""
-        # Limpar entradas existentes
-        for widget in self.epi_frame.winfo_children():
-            widget.destroy()
-        
-        # Label para Female Sex
-        ttk.Label(self.epi_frame, text="Sexo Feminino:").grid(row=0, column=0, sticky=tk.W, pady=2)
-        
-        # Atualizar labels e entradas
-        self.epi_entries = {}
-        for i, intervention_dict in enumerate(self.int_fields):
-            inter_text = intervention_dict['intervention'].get().strip() if intervention_dict['intervention'].get().strip() else f"Intervenção {i+1}"
-            ttk.Label(self.epi_frame, text=inter_text).grid(row=0, column=i+1, padx=5, pady=2)
-            
-            entry = ttk.Entry(self.epi_frame, width=20)
-            entry.grid(row=1, column=i+1, padx=5, pady=2, sticky='ew')
-            entry.insert(0, "0 (0.0%)")
-            self.epi_entries[inter_text] = entry
-        
-    def add_age_field(self, parent_frame):
-        """Adiciona campos para Idade"""
-        self.age_frame = ttk.Frame(parent_frame)
-        self.age_frame.grid(row=10, column=1, columnspan=2, sticky='ew', pady=2)
-        
-        # Labels para Intervenção
-        ttk.Label(self.age_frame, text="Grupo").grid(row=0, column=0, padx=5, pady=2)
-        ttk.Label(self.age_frame, text="Idade").grid(row=0, column=1, padx=5, pady=2)
-        
-        self.age_entries = []
-        self.update_age_fields()
-        
-    def update_age_fields(self):
-        """Atualiza os campos de Idade com base nas Intervenções"""
-        # Limpar campos existentes
-        for widget in self.age_frame.winfo_children():
-            widget.destroy()
-        
-        # Recriar labels de cabeçalho
-        ttk.Label(self.age_frame, text="Grupo").grid(row=0, column=0, padx=5, pady=2)
-        ttk.Label(self.age_frame, text="Idade").grid(row=0, column=1, padx=5, pady=2)
-        
-        self.age_entries = []
-        for i, intervention_dict in enumerate(self.int_fields):
-            group = intervention_dict['intervention'].get().strip() if intervention_dict['intervention'].get().strip() else f"Intervenção {i+1}"
-            ttk.Label(self.age_frame, text=group).grid(row=i+1, column=0, padx=5, pady=2)
-            
-            age_entry = ttk.Entry(self.age_frame, width=30)
-            age_entry.grid(row=i+1, column=1, padx=5, pady=2, sticky='ew')
-            age_entry.insert(0, "0.0 ± 0.0")
-            
-            self.age_entries.append(age_entry)
-        
+        for label_text, var_name in ae_fields:
+            ttk.Label(frame, text=label_text).grid(row=self.current_row, column=0, sticky=tk.W, pady=2)
+            setattr(self, var_name, tk.StringVar())
+            entry = ttk.Entry(frame, textvariable=getattr(self, var_name), width=40)
+            entry.grid(row=self.current_row, column=1, sticky='ew', pady=2)
+            self.current_row += 1
+    
     def save_entry(self):
-        """Salva a entrada atual nos dados coletados"""
-        study = self.study_var.get()
-        if not study:
-            messagebox.showerror("Erro", "Por favor, selecione um estudo.")
+        """Salva a entrada atual"""
+        # Verificar se o Study_ID está selecionado
+        study_id = self.study_var.get()
+        if not study_id:
+            messagebox.showerror("Erro", "Por favor, selecione o Study_ID.")
             return
         
-        # População
-        population_entries = [field.get().strip() for field in self.pop_fields if field.get().strip()]
-        if not population_entries:
-            messagebox.showerror("Erro", "Por favor, insira pelo menos uma característica de população.")
-            return
-        population = ", ".join(population_entries)
-        
-        # Documentação de Abreviações
-        abbreviations = self.abbreviation_text.get("1.0", tk.END).strip()
-        
-        # Intervenção
-        intervention_entries = [field['intervention'].get().strip() for field in self.int_fields if field['intervention'].get().strip()]
-        if not intervention_entries:
-            messagebox.showerror("Erro", "Por favor, insira pelo menos uma intervenção.")
-            return
-        intervention = ", ".join(intervention_entries)
-        
-        # Controle
-        control_entries = [field.get().strip() for field in self.control_fields if field.get().strip()]
-        if not control_entries:
-            messagebox.showerror("Erro", "Por favor, insira pelo menos um controle.")
-            return
-        control = ", ".join(control_entries)
-        
-        # Desenho do Estudo
-        study_design = self.study_design_var.get()
-        
-        # Follow-Up
-        followup_number = self.followup_number_var.get().strip()
-        followup_unit = self.followup_unit_var.get().strip()
-        followup_symbol = self.followup_symbol_var.get().strip()
-        if not followup_number.isdigit():
-            messagebox.showerror("Erro", "Por favor, insira um número válido para Follow-Up.")
-            return
-        followup = f"{followup_number} {followup_unit} {followup_symbol}"
-        
-        # Número de Pacientes
-        patient_numbers = {}
-        for idx, entry in enumerate(self.patient_entries):
-            num = entry.get().strip()
-            if num:
-                patient_numbers[f"{intervention_entries[idx]}"] = num
-        
-        # Dados Epidemiológicos
-        epidemiological_data = {}
-        for key, entry in self.epi_entries.items():
-            epidemiological_data[key] = entry.get().strip()
-        
-        # Idade
-        age_data = {}
-        for idx, entry in enumerate(self.age_entries):
-            age = entry.get().strip()
-            group = intervention_entries[idx] if idx < len(intervention_entries) else f"Grupo {idx+1}"
-            age_data[group] = age
-        
-        # Construir o dicionário de entrada
+        # Coletar todos os dados
         entry = {
-            'Study': study,
-            'Population': population,
-            'Abbreviations': abbreviations,
-            'Intervention': intervention,
-            'Control': control,
-            'Study Design': study_design,
-            'Follow-Up': followup
+            'Study_ID': study_id,
+            'First_Author': self.author_var.get(),
+            'Year': self.year_var.get(),
+            'Country': self.country_var.get(),
+            'Study_Design': self.design_var.get(),
+            'Risk_of_Bias': self.risk_bias_var.get(),
+            'Diagnostic_Criteria': self.diagnostic_var.get(),
+            'Total_Sample_Size': self.total_sample_var.get(),
+            'Treatment_Group_N': self.treatment_n_var.get(),
+            'Control_Group_N': self.control_n_var.get(),
+            'Age_Mean_SD': self.age_mean_sd_var.get(),
+            'Male_Percentage': self.male_perc_var.get(),
+            'Female_Percentage': self.female_perc_var.get(),
+            'Single_Lesion_N': self.single_lesion_n_var.get(),
+            'Multiple_Lesions_N': self.multiple_lesions_n_var.get(),
+            'Lesions_Mean_Number': self.lesions_mean_number_var.get(),
+            'Parenchymal_Location_%': self.parenchymal_location_perc_var.get(),
+            'Extraparenchymal_%': self.extraparenchymal_perc_var.get(),
+            'Active_Cysts_%': self.active_cysts_perc_var.get(),
+            'Calcified_Lesions_%': self.calcified_lesions_perc_var.get(),
+            'Focal_Seizures_%': self.focal_seizures_perc_var.get(),
+            'Generalized_Seizures_%': self.generalized_seizures_perc_var.get(),
+            'Headache_%': self.headache_perc_var.get(),
+            'Other_Symptoms': self.other_symptoms_var.get(),
+            'Treatment_Type': self.treatment_type_var.get(),
+            'Albendazole_Dose': self.albendazole_dose_var.get(),
+            'Praziquantel_Dose': self.praziquantel_dose_var.get(),
+            'Treatment_Duration_Days': self.treatment_duration_var.get(),
+            'Number_of_Cycles': self.number_of_cycles_var.get(),
+            'Cycle_Interval_Days': self.cycle_interval_var.get(),
+            'Corticosteroid_Type': self.corticosteroid_type_var.get(),
+            'Corticosteroid_Dose': self.corticosteroid_dose_var.get(),
+            'Corticosteroid_Duration': self.corticosteroid_duration_var.get(),
+            'Antiepileptic_Drug': self.antiepileptic_drug_var.get(),
+            'AED_Dose': self.aed_dose_var.get(),
+            'Follow_up_Duration_Months': self.followup_duration_var.get(),
+            'Lost_to_Follow_up_N': self.lost_to_followup_n_var.get(),
+            'Imaging_Schedule': self.imaging_schedule_var.get(),
+            'Complete_Resolution_%': self.complete_resolution_perc_var.get(),
+            'Partial_Resolution_%': self.partial_resolution_perc_var.get(),
+            'No_Change_%': self.no_change_perc_var.get(),
+            'Calcification_Rate_%': self.calcification_rate_perc_var.get(),
+            'Seizure_Free_%': self.seizure_free_perc_var.get(),
+            'Seizure_Reduction_%': self.seizure_reduction_perc_var.get(),
+            'EITB_Positive_%': self.eitb_positive_perc_var.get(),
+            'ELISA_Positive_%': self.elisa_positive_perc_var.get(),
+            'CSF_Analysis': self.csf_analysis_var.get(),
+            'Elevated_Liver_Enzymes_%': self.elevated_liver_enzymes_perc_var.get(),
+            'Total_AE_N': self.total_ae_n_var.get(),
+            'Headache_AE_%': self.headache_ae_perc_var.get(),
+            'Seizures_AE_%': self.seizures_ae_perc_var.get(),
+            'Gastrointestinal_AE_%': self.gastrointestinal_ae_perc_var.get(),
+            'Other_AE': self.other_ae_var.get(),
+            'Comments': self.comments_text.get("1.0", tk.END).strip()
         }
-        
-        # Adicionar Número de Pacientes
-        for key, value in patient_numbers.items():
-            entry[f'Número de Pacientes - {key}'] = value
-        
-        # Adicionar Dados Epidemiológicos
-        for key, value in epidemiological_data.items():
-            entry[f'Dados Epidemiológicos - {key}'] = value
-        
-        # Adicionar Idade
-        for key, value in age_data.items():
-            entry[f'Idade - {key}'] = value
         
         # Atualizar ou adicionar entrada
         for i, d in enumerate(self.data):
-            if d['Study'] == study:
+            if d['Study_ID'] == study_id:
                 self.data[i] = entry
                 break
         else:
             self.data.append(entry)
         
-        messagebox.showinfo("Sucesso", f"Entrada salva para {study}")
+        # Mostrar mensagem de sucesso
+        self.root.lift()  # Traz a janela para frente
+        messagebox.showinfo("Sucesso", "Dados salvos com sucesso!", parent=self.root)
         self.clear_form()
         
     def clear_form(self):
         """Limpa todos os campos do formulário"""
+        # Limpar variáveis
         self.study_var.set('')
-        for field in self.pop_fields:
-            field.delete(0, tk.END)
-        self.abbreviation_text.delete("1.0", tk.END)
-        for field in self.int_fields:
-            field['intervention'].delete(0, tk.END)
-            field['patients'].delete(0, tk.END)
-            field['percentage'].delete(0, tk.END)
-        for field in self.control_fields:
-            field.delete(0, tk.END)
-        self.study_design_combo.set("RCT")
-        self.followup_number_var.set('')
-        self.followup_unit_combo.set("Meses")
-        self.followup_symbol_combo.set("±")
-        
-        # Limpar Número de Pacientes
-        for entry in self.patient_entries:
-            entry.delete(0, tk.END)
-            entry.insert(0, "0")
-        
-        # Limpar Dados Epidemiológicos
-        for entry in self.epi_entries.values():
-            entry.delete(0, tk.END)
-            entry.insert(0, "0 (0.0%)")
-        
-        # Limpar Idade
-        for entry in self.age_entries:
-            entry.delete(0, tk.END)
-            entry.insert(0, "0.0 ± 0.0")
+        self.author_var.set('')
+        self.year_var.set('')
+        self.country_var.set('')
+        self.design_var.set('')
+        self.risk_bias_var.set('')
+        self.diagnostic_var.set('')
+        self.total_sample_var.set('')
+        self.treatment_n_var.set('')
+        self.control_n_var.set('')
+        self.age_mean_sd_var.set('')
+        self.male_perc_var.set('')
+        self.female_perc_var.set('')
+        self.single_lesion_n_var.set('')
+        self.multiple_lesions_n_var.set('')
+        self.lesions_mean_number_var.set('')
+        self.parenchymal_location_perc_var.set('')
+        self.extraparenchymal_perc_var.set('')
+        self.active_cysts_perc_var.set('')
+        self.calcified_lesions_perc_var.set('')
+        self.focal_seizures_perc_var.set('')
+        self.generalized_seizures_perc_var.set('')
+        self.headache_perc_var.set('')
+        self.other_symptoms_var.set('')
+        self.treatment_type_var.set('')
+        self.albendazole_dose_var.set('')
+        self.praziquantel_dose_var.set('')
+        self.treatment_duration_var.set('')
+        self.number_of_cycles_var.set('')
+        self.cycle_interval_var.set('')
+        self.corticosteroid_type_var.set('')
+        self.corticosteroid_dose_var.set('')
+        self.corticosteroid_duration_var.set('')
+        self.antiepileptic_drug_var.set('')
+        self.aed_dose_var.set('')
+        self.followup_duration_var.set('')
+        self.lost_to_followup_n_var.set('')
+        self.imaging_schedule_var.set('')
+        self.complete_resolution_perc_var.set('')
+        self.partial_resolution_perc_var.set('')
+        self.no_change_perc_var.set('')
+        self.calcification_rate_perc_var.set('')
+        self.seizure_free_perc_var.set('')
+        self.seizure_reduction_perc_var.set('')
+        self.eitb_positive_perc_var.set('')
+        self.elisa_positive_perc_var.set('')
+        self.csf_analysis_var.set('')
+        self.elevated_liver_enzymes_perc_var.set('')
+        self.total_ae_n_var.set('')
+        self.headache_ae_perc_var.set('')
+        self.seizures_ae_perc_var.set('')
+        self.gastrointestinal_ae_perc_var.set('')
+        self.other_ae_var.set('')
+        self.comments_text.delete("1.0", tk.END)
         
         # Focar novamente no Combobox de Estudo
         self.study_combo.focus_set()
         
     def export_to_excel(self):
-        """Exporta os dados coletados para um arquivo Excel"""
+        """Exporta os dados para Excel"""
         if not self.data:
-            messagebox.showerror("Erro", "Nenhum dado para exportar.")
+            self.root.lift()
+            messagebox.showerror("Erro", "Nenhum dado para exportar.", parent=self.root)
             return
         
-        df = pd.DataFrame(self.data)
+        # Definir colunas
+        columns = [
+            # Study Information
+            'Study_ID',
+            'First_Author',
+            'Year',
+            'Country',
+            'Study_Design',
+            'Risk_of_Bias',
+            'Diagnostic_Criteria',
+            
+            # Population
+            'Total_Sample_Size',
+            'Treatment_Group_N',
+            'Control_Group_N',
+            'Age_Mean_SD',
+            'Male_Percentage',
+            'Female_Percentage',
+            
+            # Clinical Features
+            'Single_Lesion_N',
+            'Multiple_Lesions_N',
+            'Lesions_Mean_Number',
+            'Parenchymal_Location_%',
+            'Extraparenchymal_%',
+            'Active_Cysts_%',
+            'Calcified_Lesions_%',
+            'Focal_Seizures_%',
+            'Generalized_Seizures_%',
+            'Headache_%',
+            'Other_Symptoms',
+            
+            # Treatment Details
+            'Treatment_Type',
+            'Albendazole_Dose',
+            'Praziquantel_Dose',
+            'Treatment_Duration_Days',
+            'Number_of_Cycles',
+            'Cycle_Interval_Days',
+            'Corticosteroid_Type',
+            'Corticosteroid_Dose',
+            'Corticosteroid_Duration',
+            'Antiepileptic_Drug',
+            'AED_Dose',
+            
+            # Follow-up & Outcomes
+            'Follow_up_Duration_Months',
+            'Lost_to_Follow_up_N',
+            'Imaging_Schedule',
+            'Complete_Resolution_%',
+            'Partial_Resolution_%',
+            'No_Change_%',
+            'Calcification_Rate_%',
+            'Seizure_Free_%',
+            'Seizure_Reduction_%',
+            
+            # Laboratory Parameters
+            'EITB_Positive_%',
+            'ELISA_Positive_%',
+            'CSF_Analysis',
+            'Elevated_Liver_Enzymes_%',
+            
+            # Adverse Events
+            'Total_AE_N',
+            'Headache_AE_%',
+            'Seizures_AE_%',
+            'Gastrointestinal_AE_%',
+            'Other_AE',
+            
+            # Notes
+            'Comments'
+        ]
+        
+        df = pd.DataFrame(self.data, columns=columns)
         
         # Criar diretório se não existir
-        output_dir = os.path.join('02_searches', 'outputs', 'tables')
+        output_dir = os.path.join('outputs')
         os.makedirs(output_dir, exist_ok=True)
         
         # Exportar para Excel
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = os.path.join(output_dir, f'table1_neurocysticercosis_{timestamp}.xlsx')
+        filename = os.path.join(output_dir, f'data_extraction_{timestamp}.xlsx')
         
         with pd.ExcelWriter(filename, engine='xlsxwriter') as writer:
-            df.to_excel(writer, sheet_name='Tabela 1', index=False)
+            df.to_excel(writer, sheet_name='Data_Extraction', index=False)
             
             workbook = writer.book
-            worksheet = writer.sheets['Tabela 1']
+            worksheet = writer.sheets['Data_Extraction']
             
             # Formatos
             header_format = workbook.add_format({
                 'bold': True,
-                'text_wrap': True,
-                'valign': 'top',
-                'align': 'center',
-                'border': 1,
-                'bg_color': '#F2F2F2'
-            })
-            
-            cell_format = workbook.add_format({
-                'text_wrap': True,
-                'valign': 'top',
+                'bg_color': '#D9E1F2',
                 'border': 1
             })
             
-            # Larguras das colunas
-            for i, column in enumerate(df.columns):
-                max_length = max(df[column].astype(str).map(len).max(), len(column)) + 2
-                worksheet.set_column(i, i, max_length)
-                worksheet.write(0, i, column, header_format)
+            cell_format = workbook.add_format({
+                'border': 1
+            })
             
-            # Aplicar formato às células
-            for row in range(1, len(df)+1):
-                for col in range(len(df.columns)):
-                    worksheet.write(row, col, df.iloc[row-1, col], cell_format)
+            # Formatar cabeçalhos
+            for col_num, value in enumerate(columns):
+                worksheet.write(0, col_num, value, header_format)
+                worksheet.set_column(col_num, col_num, 20)
+            
+            # Adicionar validação de dados
+            # Study Design
+            worksheet.data_validation('E2:E1000', {
+                'validate': 'list',
+                'source': ['RCT', 'Non-RCT', 'Case-Control', 'Cohort', 'Cross-sectional']
+            })
+            
+            # Risk of Bias
+            worksheet.data_validation('F2:F1000', {
+                'validate': 'list',
+                'source': ['Low', 'Moderate', 'High', 'Unclear']
+            })
+            
+            # Treatment Type
+            worksheet.data_validation('W2:W1000', {
+                'validate': 'list',
+                'source': ['Albendazole', 'Praziquantel', 'Combined', 'Placebo']
+            })
         
-        messagebox.showinfo("Sucesso", f"Dados exportados para {filename}")
+        self.root.lift()
+        messagebox.showinfo("Sucesso", f"Dados exportados para {filename}", parent=self.root)
         
+    def on_study_select(self, event=None):
+        """Manipula a seleção de um estudo"""
+        selected_study = self.study_var.get()
+        
+        # Procurar dados existentes para este estudo
+        existing_data = None
+        for entry in self.data:
+            if entry['Study_ID'] == selected_study:
+                existing_data = entry
+                break
+        
+        if existing_data:
+            # Preencher o formulário com os dados existentes
+            self.load_study_data(existing_data)
+        else:
+            # Limpar o formulário para novo estudo
+            self.clear_form()
+            self.study_var.set(selected_study)  # Manter o estudo selecionado
+    
+    def load_study_data(self, data):
+        """Carrega os dados do estudo no formulário"""
+        self.author_var.set(data.get('First_Author', ''))
+        self.year_var.set(data.get('Year', ''))
+        self.country_var.set(data.get('Country', ''))
+        self.design_var.set(data.get('Study_Design', ''))
+        self.risk_bias_var.set(data.get('Risk_of_Bias', ''))
+        self.diagnostic_var.set(data.get('Diagnostic_Criteria', ''))
+        self.total_sample_var.set(data.get('Total_Sample_Size', ''))
+        self.treatment_n_var.set(data.get('Treatment_Group_N', ''))
+        self.control_n_var.set(data.get('Control_Group_N', ''))
+        self.age_mean_sd_var.set(data.get('Age_Mean_SD', ''))
+        self.male_perc_var.set(data.get('Male_Percentage', ''))
+        self.female_perc_var.set(data.get('Female_Percentage', ''))
+        self.single_lesion_n_var.set(data.get('Single_Lesion_N', ''))
+        self.multiple_lesions_n_var.set(data.get('Multiple_Lesions_N', ''))
+        self.lesions_mean_number_var.set(data.get('Lesions_Mean_Number', ''))
+        self.parenchymal_location_perc_var.set(data.get('Parenchymal_Location_%', ''))
+        self.extraparenchymal_perc_var.set(data.get('Extraparenchymal_%', ''))
+        self.active_cysts_perc_var.set(data.get('Active_Cysts_%', ''))
+        self.calcified_lesions_perc_var.set(data.get('Calcified_Lesions_%', ''))
+        self.focal_seizures_perc_var.set(data.get('Focal_Seizures_%', ''))
+        self.generalized_seizures_perc_var.set(data.get('Generalized_Seizures_%', ''))
+        self.headache_perc_var.set(data.get('Headache_%', ''))
+        self.other_symptoms_var.set(data.get('Other_Symptoms', ''))
+        self.treatment_type_var.set(data.get('Treatment_Type', ''))
+        self.albendazole_dose_var.set(data.get('Albendazole_Dose', ''))
+        self.praziquantel_dose_var.set(data.get('Praziquantel_Dose', ''))
+        self.treatment_duration_var.set(data.get('Treatment_Duration_Days', ''))
+        self.number_of_cycles_var.set(data.get('Number_of_Cycles', ''))
+        self.cycle_interval_var.set(data.get('Cycle_Interval_Days', ''))
+        self.corticosteroid_type_var.set(data.get('Corticosteroid_Type', ''))
+        self.corticosteroid_dose_var.set(data.get('Corticosteroid_Dose', ''))
+        self.corticosteroid_duration_var.set(data.get('Corticosteroid_Duration', ''))
+        self.antiepileptic_drug_var.set(data.get('Antiepileptic_Drug', ''))
+        self.aed_dose_var.set(data.get('AED_Dose', ''))
+        self.followup_duration_var.set(data.get('Follow_up_Duration_Months', ''))
+        self.lost_to_followup_n_var.set(data.get('Lost_to_Follow_up_N', ''))
+        self.imaging_schedule_var.set(data.get('Imaging_Schedule', ''))
+        self.complete_resolution_perc_var.set(data.get('Complete_Resolution_%', ''))
+        self.partial_resolution_perc_var.set(data.get('Partial_Resolution_%', ''))
+        self.no_change_perc_var.set(data.get('No_Change_%', ''))
+        self.calcification_rate_perc_var.set(data.get('Calcification_Rate_%', ''))
+        self.seizure_free_perc_var.set(data.get('Seizure_Free_%', ''))
+        self.seizure_reduction_perc_var.set(data.get('Seizure_Reduction_%', ''))
+        self.eitb_positive_perc_var.set(data.get('EITB_Positive_%', ''))
+        self.elisa_positive_perc_var.set(data.get('ELISA_Positive_%', ''))
+        self.csf_analysis_var.set(data.get('CSF_Analysis', ''))
+        self.elevated_liver_enzymes_perc_var.set(data.get('Elevated_Liver_Enzymes_%', ''))
+        self.total_ae_n_var.set(data.get('Total_AE_N', ''))
+        self.headache_ae_perc_var.set(data.get('Headache_AE_%', ''))
+        self.seizures_ae_perc_var.set(data.get('Seizures_AE_%', ''))
+        self.gastrointestinal_ae_perc_var.set(data.get('Gastrointestinal_AE_%', ''))
+        self.other_ae_var.set(data.get('Other_AE', ''))
+        self.comments_text.delete("1.0", tk.END)
+        self.comments_text.insert(tk.END, data.get('Comments', ''))
+    
     def bind_shortcuts(self):
         """Vincula atalhos de teclado ao aplicativo"""
         # Salvar Entrada com Ctrl+Enter
@@ -754,224 +716,7 @@ class StudyEntryForm:
         # Exportar com Ctrl+E
         self.root.bind('<Control-e>', lambda event: self.export_to_excel())
         self.root.bind('<Control-E>', lambda event: self.export_to_excel())
-        
-    def validate_entry(self, entry, field_type):
-        """Valida entrada do usuário e mostra mensagem de erro apropriada"""
-        value = entry.get().strip()
-        
-        if field_type == "population":
-            if not value:
-                messagebox.showwarning("Aviso", "Campo de população não pode estar vazio")
-                return False
-            if len(value) < 3:
-                messagebox.showwarning("Aviso", "Descrição da população deve ter pelo menos 3 caracteres")
-                return False
-                
-        elif field_type == "intervention":
-            if not value:
-                messagebox.showwarning("Aviso", "Campo de intervenção não pode estar vazio")
-                return False
-            if len(value) < 3:
-                messagebox.showwarning("Aviso", "Descrição da intervenção deve ter pelo menos 3 caracteres")
-                return False
-                
-        elif field_type == "patients":
-            try:
-                num = int(value)
-                if num < 0:
-                    messagebox.showwarning("Aviso", "Número de pacientes não pode ser negativo")
-                    return False
-            except ValueError:
-                messagebox.showwarning("Aviso", "Número de pacientes deve ser um número inteiro")
-                return False
-                
-        elif field_type == "percentage":
-            try:
-                num = float(value.replace('%', ''))
-                if not 0 <= num <= 100:
-                    messagebox.showwarning("Aviso", "Porcentagem deve estar entre 0 e 100")
-                    return False
-            except ValueError:
-                messagebox.showwarning("Aviso", "Formato inválido para porcentagem. Use: XX.X%")
-                return False
-                
-        elif field_type == "age":
-            if "±" in value:  # Formato média ± DP
-                try:
-                    mean, sd = value.split("±")
-                    float(mean.strip())
-                    float(sd.strip())
-                except ValueError:
-                    messagebox.showwarning("Aviso", "Formato inválido para idade. Use: XX.X ± XX.X")
-                    return False
-            else:  # Formato mediana (IQR)
-                if not value.strip().startswith("(") or not value.strip().endswith(")"):
-                    messagebox.showwarning("Aviso", "Formato inválido para idade. Use: XX.X (XX.X-XX.X)")
-                    return False
-        
-        return True
-        
-    def add_treatment_group(self):
-        """Adiciona um novo grupo de tratamento"""
-        idx = len(self.treatment_groups) + 1
-        frame = ttk.Frame(self.treatment_frame)
-        frame.grid(row=idx, column=0, sticky='ew', pady=2)
-        
-        # Nome do grupo
-        ttk.Label(frame, text=f"Grupo {idx}:").grid(row=0, column=0, padx=5)
-        name_var = tk.StringVar()
-        name_entry = ttk.Entry(frame, textvariable=name_var, width=20)
-        name_entry.grid(row=0, column=1, padx=5)
-        
-        # Número de pacientes
-        ttk.Label(frame, text="N:").grid(row=0, column=2, padx=5)
-        n_var = tk.StringVar()
-        n_entry = ttk.Entry(frame, textvariable=n_var, width=10)
-        n_entry.grid(row=0, column=3, padx=5)
-        
-        # Adicionar à lista de grupos
-        group_dict = {
-            'frame': frame,
-            'name': name_var,
-            'name_entry': name_entry,
-            'n': n_var,
-            'n_entry': n_entry
-        }
-        self.treatment_groups.append(group_dict)
-        
-        # Vincular eventos
-        n_entry.bind("<Tab>", lambda e: self.handle_treatment_tab(e, group_dict))
-        name_entry.bind("<Delete>", lambda e: self.handle_treatment_delete(e, group_dict))
-        name_entry.bind("<BackSpace>", lambda e: self.handle_treatment_delete(e, group_dict))
-        
-        # Vincular atualização do total
-        n_var.trace('w', self.update_total_n)
-
-    def handle_treatment_tab(self, event, current_group):
-        """Gerencia Tab nos campos de tratamento"""
-        if (current_group['n_entry'] == event.widget and 
-            current_group['n'].get().strip() and 
-            current_group == self.treatment_groups[-1]):
-            # Se for o último campo do último grupo e tiver conteúdo
-            self.add_treatment_group()
-            self.treatment_groups[-1]['name_entry'].focus_set()
-            return "break"
-        return None
-
-    def handle_treatment_delete(self, event, current_group):
-        """Gerencia Delete/Backspace nos campos de tratamento"""
-        if (not current_group['name'].get().strip() and 
-            len(self.treatment_groups) > 1):
-            # Se o campo de nome estiver vazio e houver mais de um grupo
-            idx = self.treatment_groups.index(current_group)
-            current_group['frame'].destroy()
-            self.treatment_groups.remove(current_group)
-            
-            # Focar no grupo anterior se existir
-            if idx > 0:
-                self.treatment_groups[idx-1]['name_entry'].focus_set()
-            
-            self.update_total_n()
-            return "break"
-        return None
-
-    def update_total_n(self, *args):
-        """Atualiza o número total de pacientes"""
-        total = 0
-        for group in self.treatment_groups:
-            try:
-                n = int(group['n'].get() or 0)
-                total += n
-            except ValueError:
-                pass
-        self.total_n_var.set(str(total))
-
-    def add_control_group(self):
-        """Adiciona um novo grupo controle"""
-        idx = len(self.control_groups) + 1
-        frame = ttk.Frame(self.control_frame)
-        frame.grid(row=idx, column=0, sticky='ew', pady=2)
-        
-        # Nome do controle
-        ttk.Label(frame, text=f"Controle {idx}:").grid(row=0, column=0, padx=5)
-        name_var = tk.StringVar()
-        name_entry = ttk.Entry(frame, textvariable=name_var, width=30)
-        name_entry.grid(row=0, column=1, padx=5)
-        
-        # Número de pacientes
-        ttk.Label(frame, text="N:").grid(row=0, column=2, padx=5)
-        n_var = tk.StringVar()
-        n_entry = ttk.Entry(frame, textvariable=n_var, width=10)
-        n_entry.grid(row=0, column=3, padx=5)
-        
-        # Adicionar ao dicionário
-        control_dict = {
-            'frame': frame,
-            'name': name_var,
-            'name_entry': name_entry,
-            'n': n_var,
-            'n_entry': n_entry
-        }
-        self.control_groups.append(control_dict)
-        
-        # Vincular eventos
-        n_entry.bind("<Tab>", lambda e: self.handle_control_tab(e, control_dict))
-        name_entry.bind("<BackSpace>", lambda e: self.handle_control_delete(e, control_dict))
-        
-        # Vincular atualização do total
-        n_var.trace('w', self.update_total_n)
-
-    def handle_control_tab(self, event, current_group):
-        """Gerencia Tab nos campos de controle"""
-        if (current_group['n_entry'] == event.widget and 
-            current_group['n'].get().strip() and 
-            current_group == self.control_groups[-1]):
-            # Se for o último campo do último grupo e tiver conteúdo
-            self.add_control_group()
-            self.control_groups[-1]['name_entry'].focus_set()
-            return "break"  # Importante para interromper o comportamento padrão do Tab
-        return None
-
-    def handle_control_delete(self, event, current_group):
-        """Gerencia Delete/Backspace nos campos de controle"""
-        if (not current_group['name'].get().strip() and 
-            len(self.control_groups) > 1 and
-            current_group['name_entry'] == event.widget):  # Verifica se o evento veio do campo nome
-            # Se o campo de nome estiver vazio e houver mais de um grupo
-            idx = self.control_groups.index(current_group)
-            current_group['frame'].destroy()
-            self.control_groups.remove(current_group)
-            
-            # Focar no grupo anterior se existir
-            if idx > 0:
-                self.control_groups[idx-1]['name_entry'].focus_set()
-            
-            self.update_total_n()
-            return "break"  # Importante para interromper o comportamento padrão do Backspace
-        return None
-
-    def update_total_n(self, *args):
-        """Atualiza os números totais de pacientes"""
-        # Total tratamentos
-        total_treatment = 0
-        for group in self.treatment_groups:
-            try:
-                n = int(group['n'].get() or 0)
-                total_treatment += n
-            except ValueError:
-                pass
-        self.total_treatment_n_var.set(str(total_treatment))
-        
-        # Total controles
-        total_control = 0
-        for group in self.control_groups:
-            try:
-                n = int(group['n'].get() or 0)
-                total_control += n
-            except ValueError:
-                pass
-        self.total_control_n_var.set(str(total_control))
-
+    
     @staticmethod
     def main():
         root = tk.Tk()
