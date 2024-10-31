@@ -1,23 +1,20 @@
 ﻿# Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
+*.class
 venv/
-ENV/
+.env
 
 # IDEs
-.idea/
 .vscode/
+.idea/
 *.swp
-*.swo
 
-# Arquivos temporários
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Arquivos de dados
 *.xlsx
-*.log
-*.tmp
-
-# Mantenha os diretórios mas ignore conteúdo temporário
-outputs/*
-!outputs/.gitkeep
+02_searches/outputs/
+estudos.xlsx
